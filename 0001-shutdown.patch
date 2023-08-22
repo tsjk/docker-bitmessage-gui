@@ -1,0 +1,59 @@
+--- src/api.py.orig	2023-08-22 07:30:10.084726158 +0200
++++ src/api.py	2023-08-22 07:37:47.896700423 +0200
+@@ -1531,6 +1531,7 @@
+         """Shutdown the bitmessage. Returns 'done'."""
+         # backward compatible trick because False == 0 is True
+         state.shutdown = False
++        queues.UISignalQueue.put(('quit', ''))
+         return 'done'
+ 
+     def _handle_request(self, method, params):
+--- src/bitmessageqt/__init__.py.orig	2023-08-22 07:30:10.091726051 +0200
++++ src/bitmessageqt/__init__.py	2023-08-22 07:46:31.315688361 +0200
+@@ -681,12 +681,13 @@
+         self.rerenderTabTreeMessages()
+ 
+         # Set welcome message
+-        self.ui.textEditInboxMessage.setText(_translate("MainWindow", """
++        self.ui.textEditInboxMessage.setText(_translate("MainWindow",
++        """
+         Welcome to easy and secure Bitmessage
+             * send messages to other people
+             * send broadcast messages like twitter or
+-            * discuss in chan(nel)s with other people
+-        """))
++            * discuss in chan(nel)s with other people"""
++        ))
+ 
+         # Initialize the address book
+         self.rerenderAddressBook()
+@@ -800,6 +801,8 @@
+             "newVersionAvailable(PyQt_PyObject)"), self.newVersionAvailable)
+         QtCore.QObject.connect(self.UISignalThread, QtCore.SIGNAL(
+             "displayAlert(PyQt_PyObject,PyQt_PyObject,PyQt_PyObject)"), self.displayAlert)
++        QtCore.QObject.connect(self.UISignalThread, QtCore.SIGNAL(
++            "quit()"), app.quit)
+         self.UISignalThread.start()
+ 
+         # Key press in tree view
+@@ -1367,7 +1370,8 @@
+ 
+         queryreturn = sqlQuery('''
+         SELECT msgid, toaddress, read FROM inbox where folder='inbox'
+-        ''')
++        '''
++        )
+         for msgid, toAddress, read in queryreturn:
+ 
+             if not read:
+--- src/bitmessageqt/uisignaler.py.orig	2023-08-22 07:30:10.095725989 +0200
++++ src/bitmessageqt/uisignaler.py	2023-08-22 07:47:45.601552882 +0200
+@@ -85,6 +85,8 @@
+                     title,
+                     text,
+                     exitAfterUserClicksOk)
++            elif command == 'quit':
++                self.emit(SIGNAL("quit()"))
+             else:
+                 sys.stderr.write(
+                     'Command sent to UISignaler not recognized: %s\n' % command)
