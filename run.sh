@@ -1,6 +1,8 @@
 #!/bin/bash
 
 declare __tz="Etc/UTC"
+declare __socks_hostname="10.0.2.2"
+declare __socks_port="9050"
 declare __userid="$(id -u):$(id -g)"
 declare __username="$(id -u -n)"
 declare -i __uid="${__userid%%:*}" __gid="${__userid##*:}";
@@ -19,4 +21,6 @@ podman run	--uidmap ${__uid}:0:1 --uidmap 0:1:${__uid} --uidmap $(( __uid + 1 ))
 		-v "/dev/dri":"/dev/dri" -v "/tmp/.X11-unix/":"/tmp/.X11-unix/" -v "/tmp/.${__username}--xauth-podman":"/tmp/.xauth-podman":'rw' -v "/run/user/${__uid}/":"/run/user/${__uid}/" \
 		-e DISPLAY="unix:${DISPLAY##:}" -e PULSE_SERVER="/run/user/${__uid}/pulse/native" -e XAUTHORITY="/tmp/.xauth-podman" -e XDG_RUNTIME_DIR="/run/user/${__uid}" --ipc host \
 		--rm --name bitmessage-gui --network slirp4netns:allow_host_loopback=true -e TZ="${__tz}" \
+		-e LANG="en_US.UTF-8" -e LANGUAGE="en_US.UTF-8" -e LC_ALL="en_US.UTF-8" \
+		-e SOCKS_HOST="${__socks_hostname}" -e SOCKS_PORT="${__socks_port}" \
 		-v "${HOME}/.config/PyBitmessage":"/PyBitmessage--data":rw -p 127.0.0.1:8444:8444 -p 127.0.0.1:8442:8442 -d local/bitmessage-gui

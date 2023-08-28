@@ -1,8 +1,9 @@
 FROM debian:buster
 
-ENV DEBIAN_FRONTEND noninteractive
-
-ENV TZ=Etc/UTC
+ENV DEBIAN_FRONTEND="noninteractive" \
+    TZ="Etc/UTC" \
+    SOCKS_HOST="" \
+    SOCKS_PORT=""
 
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections \
  && echo "${TZ}" > /etc/timezone \
@@ -20,7 +21,11 @@ ENV LANG=en_US.UTF-8\
     LANGUAGE=en_US.UTF-8\
     LC_ALL=en_US.UTF-8
 
+ENV TINI_VERSION v0.19.0
+ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static-amd64 /tini
+ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static-amd64.asc /tini.asc
 COPY ./0001-shutdown.patch /tmp/0001-shutdown.patch
+COPY ./entrypoint.sh /entrypoint.sh
 
 RUN add-apt-repository 'deb http://deb.debian.org/debian buster-backports main' \
  && apt-get dist-upgrade -y \
@@ -34,10 +39,17 @@ RUN add-apt-repository 'deb http://deb.debian.org/debian buster-backports main' 
       python-jsonrpclib \
       python-defusedxml \
       python-qrcode \
+      socat \
  && apt-get install -y \
+      libssl-dev \
       g++ \
       git \
-      libssl-dev \
+      gpg \
+ && gpg --batch --keyserver hkp://keyserver.ubuntu.com:80 \
+      --recv-keys 595E85A6B1B4779EA4DAAEC70B588DFF0527A9B7 \
+ && gpg --batch --verify /tini.asc /tini && rm /tini.asc \
+ && rm -rf /root/.gnupg \
+ && chmod 0755 /tini /entrypoint.sh \
  && git clone https://github.com/Bitmessage/PyBitmessage \
  && ( cd PyBitmessage && \
       patch -p0 < /tmp/0001-shutdown.patch && \
@@ -45,9 +57,10 @@ RUN add-apt-repository 'deb http://deb.debian.org/debian buster-backports main' 
  && rm -rf PyBitmessage \
  && rm -f /tmp/0001-shutdown.patch \
  && apt-get purge --auto-remove -y \
+      libssl-dev \
       g++ \
       git \
-      libssl-dev \
+      gpg \
  && rm -rf /var/lib/apt/lists/* \
  && useradd -u 1001 --create-home --home-dir /home/user user \
  && mkdir /PyBitmessage--data \
@@ -57,4 +70,5 @@ RUN add-apt-repository 'deb http://deb.debian.org/debian buster-backports main' 
 USER user
 WORKDIR /home/user
 VOLUME ["PyBitmessage--data"]
-ENTRYPOINT ["pybitmessage"]
+ENTRYPOINT ["/tini", "-g", "--", "/entrypoint.sh"]
+CMD ["pybitmessage"]
